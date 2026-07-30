@@ -1,0 +1,15 @@
+{
+  "name": "自媒体自律复盘工作台",
+  "short_name": "自律复盘",
+  "description": "自媒体日更 · 搞钱变现 · 自律复盘 · 日进千金",
+  "start_url": ".",
+  "scope": ".",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#0f766e",
+  "theme_color": "#0f766e",
+  "icons": [
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png", "purpose": "any" },
+    { "src": "icon.png", "sizes": "180x180", "type": "image/png", "purpose": "maskable" }
+  ]
+}

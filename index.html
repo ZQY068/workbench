@@ -1,0 +1,773 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>自媒体自律复盘工作台</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" href="icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="自律复盘">
+<meta name="theme-color" content="#0f766e">
+<style>
+  :root{
+    --bg:#f4f6f8;
+    --panel:#ffffff;
+    --ink:#1f2a37;
+    --ink-soft:#5b6675;
+    --line:#e4e8ee;
+    --brand:#0f766e;
+    --brand-soft:#e6f4f1;
+    --gold:#b8860b;
+    --gold-soft:#fdf6e3;
+    --danger:#dc2626;
+    --shadow:0 1px 3px rgba(16,24,40,.06),0 8px 24px rgba(16,24,40,.06);
+    --radius:14px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  body{
+    font-family:-apple-system,BlinkMacSystemFont,"PingFang SC","Microsoft YaHei","Segoe UI",Roboto,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    font-size:15px;
+    line-height:1.6;
+  }
+  /* ===== 顶部置顶座右铭 ===== */
+  header.topbar{
+    position:sticky;top:0;z-index:100;
+    background:linear-gradient(135deg,#0f766e,#115e59 55%,#134e4a);
+    color:#fff;
+    padding:14px 22px;
+    box-shadow:0 2px 12px rgba(15,118,110,.25);
+  }
+  .motto{font-size:15px;letter-spacing:.5px;text-align:center;opacity:.96;}
+  .motto b{color:#ffe9a8;font-weight:700;}
+  .motto .salary{color:#ffe9a8;font-weight:700;}
+  .topmeta{
+    display:flex;justify-content:center;align-items:center;gap:18px;
+    margin-top:8px;flex-wrap:wrap;font-size:13px;
+  }
+  .topmeta .chip{
+    background:rgba(255,255,255,.12);
+    border:1px solid rgba(255,255,255,.18);
+    padding:5px 12px;border-radius:999px;
+  }
+  .topmeta .chip b{color:#ffe9a8;}
+  .topgoal{
+    max-width:760px;margin:8px auto 0;font-size:12.5px;
+    background:rgba(255,255,255,.08);border:1px dashed rgba(255,255,255,.25);
+    border-radius:10px;padding:6px 12px;color:#eafff8;
+    text-align:center;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  }
+  /* ===== 布局 ===== */
+  .layout{display:flex;align-items:flex-start;min-height:calc(100vh - 130px);}
+  /* 左侧固定菜单 */
+  aside.menu{
+    width:200px;flex:0 0 200px;
+    position:sticky;top:130px;
+    align-self:flex-start;
+    padding:18px 12px;
+    background:var(--panel);
+    border-right:1px solid var(--line);
+    height:calc(100vh - 130px);
+    overflow-y:auto;
+  }
+  .menu .title{font-size:12px;color:var(--ink-soft);text-align:center;margin:0 0 12px;letter-spacing:2px;}
+  .menu button{
+    display:block;width:100%;text-align:left;
+    border:none;background:transparent;cursor:pointer;
+    padding:12px 14px;margin-bottom:8px;border-radius:10px;
+    font-size:14.5px;color:var(--ink);font-weight:600;
+    transition:.15s;border-left:3px solid transparent;
+  }
+  .menu button .no{color:var(--brand);font-weight:800;margin-right:8px;}
+  .menu button:hover{background:var(--brand-soft);}
+  .menu button.active{
+    background:var(--brand);color:#fff;border-left:3px solid var(--gold);
+  }
+  .menu button.active .no{color:#ffe9a8;}
+  .menu .foot{margin-top:14px;font-size:11px;color:var(--ink-soft);text-align:center;line-height:1.5;}
+  /* 右侧主页引导 */
+  main.content{flex:1;padding:26px;min-width:0;}
+  .home{text-align:center;padding:60px 20px;}
+  .home h2{justify-content:center;color:var(--brand);}
+  .home .big{font-size:22px;margin:0 0 10px;}
+  .home p{color:var(--ink-soft);max-width:520px;margin:8px auto;}
+  /* ===== 全屏弹出窗口 ===== */
+  .overlay{
+    position:fixed;left:0;right:0;bottom:0;top:130px;
+    background:var(--bg);z-index:90;
+    display:none;flex-direction:column;
+  }
+  .overlay.open{display:flex;}
+  .overlay-bar{
+    position:sticky;top:0;z-index:5;flex:0 0 auto;
+    display:flex;align-items:center;gap:8px;
+    background:var(--panel);border-bottom:1px solid var(--line);
+    padding:10px 16px;overflow-x:auto;
+  }
+  .overlay-bar .ob-title{font-weight:800;color:var(--brand);margin-right:6px;white-space:nowrap;font-size:14px;}
+  .overlay-bar button{
+    flex:0 0 auto;border:none;background:var(--brand-soft);color:var(--brand);
+    border-radius:999px;padding:7px 15px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;
+  }
+  .overlay-bar button.active{background:var(--brand);color:#fff;}
+  .overlay-bar .ob-close{margin-left:auto;background:#fff;color:var(--ink-soft);border:1px solid var(--line);}
+  .overlay-bar .ob-close:hover{background:var(--danger);color:#fff;border-color:var(--danger);}
+  .overlay-body{flex:1;overflow-y:auto;padding:22px 26px 70px;}
+  .panel{display:none;}
+  .panel.active{display:block;animation:fade .2s ease;max-width:980px;margin:0 auto;}
+  @keyframes fade{from{opacity:0;transform:translateY(6px);}to{opacity:1;transform:none;}}
+  .card{
+    background:var(--panel);border:1px solid var(--line);
+    border-radius:var(--radius);padding:22px 24px;margin-bottom:18px;
+    box-shadow:var(--shadow);
+  }
+  .card h2{
+    margin:0 0 4px;font-size:18px;color:var(--brand);
+    display:flex;align-items:center;gap:8px;
+  }
+  .card h2 .badge{
+    font-size:11px;background:var(--gold-soft);color:var(--gold);
+    border:1px solid #ecd9a0;padding:2px 8px;border-radius:999px;font-weight:700;
+  }
+  .section-title{
+    font-size:15px;font-weight:800;color:var(--ink);
+    margin:18px 0 10px;padding-left:10px;border-left:4px solid var(--brand);
+  }
+  .hint{font-size:12px;color:var(--ink-soft);margin:2px 0 12px;}
+  label.fld{display:block;font-weight:700;margin:14px 0 6px;color:var(--ink);}
+  label.fld small{font-weight:500;color:var(--ink-soft);}
+  input[type=text],input[type=number],input[type=date],textarea,select{
+    width:100%;border:1px solid var(--line);border-radius:9px;
+    padding:10px 12px;font-size:14px;font-family:inherit;color:var(--ink);
+    background:#fcfdfe;transition:.15s;
+  }
+  input:focus,textarea:focus,select:focus{outline:none;border-color:var(--brand);background:#fff;box-shadow:0 0 0 3px var(--brand-soft);}
+  textarea{resize:vertical;min-height:84px;line-height:1.7;}
+  textarea.tall{min-height:220px;}
+  .grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+  .grid3{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
+  @media(max-width:760px){.grid2,.grid3{grid-template-columns:1fr;}}
+  .checkin{list-style:none;padding:0;margin:6px 0 0;}
+  .checkin li{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 12px;border:1px solid var(--line);border-radius:10px;
+    margin-bottom:8px;background:#fcfdfe;cursor:pointer;transition:.15s;
+  }
+  .checkin li:hover{background:var(--brand-soft);}
+  .checkin li.done{background:var(--brand-soft);border-color:#bfe3da;}
+  .checkin input{width:18px;height:18px;accent-color:var(--brand);cursor:pointer;flex:0 0 auto;}
+  .checkin .txt{flex:1;}
+  .checkin .streak{font-size:12px;color:var(--brand);font-weight:700;white-space:nowrap;}
+  .checkin .streak.zero{color:var(--ink-soft);font-weight:500;}
+  .datebar{
+    display:flex;align-items:center;gap:14px;flex-wrap:wrap;
+    background:var(--brand-soft);border:1px solid #cfe7e1;border-radius:12px;
+    padding:12px 16px;margin-bottom:16px;
+  }
+  .datebar .lab{font-weight:700;color:var(--brand);}
+  .datebar .countdown{margin-left:auto;font-size:13px;color:var(--ink-soft);}
+  .datebar .countdown b{color:var(--gold);font-size:16px;}
+  .stat-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:8px;}
+  @media(max-width:760px){.stat-grid{grid-template-columns:repeat(2,1fr);}}
+  .stat{background:#fcfdfe;border:1px solid var(--line);border-radius:12px;padding:14px;text-align:center;}
+  .stat .n{font-size:24px;font-weight:800;color:var(--brand);}
+  .stat .l{font-size:12px;color:var(--ink-soft);margin-top:2px;}
+  .diary{border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px;background:#fff;}
+  .diary .dh{display:flex;align-items:center;gap:10px;flex-wrap:wrap;cursor:pointer;}
+  .diary .dh .d{font-weight:800;color:var(--ink);}
+  .diary .dh .tag{font-size:11px;background:var(--brand-soft);color:var(--brand);padding:2px 8px;border-radius:999px;}
+  .diary .dh .earn{margin-left:auto;font-size:12px;color:var(--gold);font-weight:700;}
+  .diary .body{display:none;margin-top:12px;border-top:1px dashed var(--line);padding-top:12px;}
+  .diary.open .body{display:block;}
+  .diary .row{margin:6px 0;font-size:13.5px;}
+  .diary .row b{color:var(--ink-soft);font-weight:700;}
+  .mini-btn{border:1px solid var(--brand);background:#fff;color:var(--brand);border-radius:8px;padding:4px 12px;font-size:12px;cursor:pointer;font-weight:700;}
+  .mini-btn:hover{background:var(--brand);color:#fff;}
+  .meditate{background:linear-gradient(160deg,#0f766e,#134e4a);color:#eafff8;border-radius:18px;padding:34px 30px;box-shadow:var(--shadow);}
+  .meditate h2{color:#ffe9a8;border:none;justify-content:center;font-size:22px;}
+  .meditate .verse{max-width:640px;margin:18px auto;font-size:17px;line-height:2;text-align:center;letter-spacing:.5px;}
+  .meditate .verse span{display:block;margin:10px 0;}
+  .meditate .focus{max-width:640px;margin:18px auto;font-size:14px;background:rgba(255,255,255,.08);border:1px dashed rgba(255,255,255,.3);border-radius:12px;padding:16px 20px;text-align:center;}
+  .meditate .center{text-align:center;margin-top:18px;}
+  .meditate .big-btn{background:#ffe9a8;color:#134e4a;border:none;border-radius:999px;padding:13px 34px;font-size:15px;font-weight:800;cursor:pointer;}
+  .meditate .big-btn:hover{filter:brightness(.96);}
+  .meditate .streak-badge{margin-top:12px;font-size:13px;color:#ffe9a8;}
+  #toast{position:fixed;left:50%;bottom:32px;transform:translateX(-50%) translateY(20px);background:rgba(31,42,55,.94);color:#fff;padding:11px 20px;border-radius:999px;font-size:13.5px;opacity:0;pointer-events:none;transition:.25s;z-index:200;}
+  #toast.show{opacity:1;transform:translateX(-50%) translateY(0);}
+  .wordcount{font-size:12px;color:var(--ink-soft);text-align:right;margin-top:4px;}
+  .wordcount b{color:var(--brand);}
+  .readonly-note{font-size:12px;color:var(--ink-soft);font-style:italic;margin:2px 0 0;}
+  .empty{text-align:center;color:var(--ink-soft);padding:40px 0;font-size:14px;}
+  .preset{font-size:12px;color:var(--brand);background:var(--brand-soft);border:1px solid #cfe7e1;border-radius:8px;padding:8px 12px;margin:6px 0 0;white-space:pre-line;}
+  .ob-ver{font-size:11px;color:var(--ink-soft);white-space:nowrap;}
+
+  /* ===== 手机端响应式：全屏工作台，隐藏左侧菜单与收起按钮 ===== */
+  @media(max-width:760px){
+    aside.menu{display:none;}
+    .overlay-bar .ob-title{display:none;}
+    .overlay-bar .ob-close{display:none;}
+    .topbar{padding:10px 12px;}
+    .motto{font-size:12.5px;letter-spacing:0;}
+    .topmeta{gap:6px;font-size:11px;margin-top:6px;}
+    .topgoal{font-size:11px;padding:4px 8px;margin-top:6px;}
+    .overlay-bar{gap:6px;padding:8px 10px;}
+    .overlay-bar button{padding:6px 12px;font-size:12.5px;}
+    .overlay-bar button .no{margin-right:3px;}
+    .ob-ver{margin-left:auto;}
+    .overlay-body{padding:14px 12px 64px;}
+    .card{padding:16px 14px;}
+    .card h2{font-size:16px;}
+    .checkin li{flex-wrap:wrap;}
+    .grid2,.grid3{grid-template-columns:1fr;}
+  }
+</style>
+</head>
+<body>
+
+<!-- ===== 顶部置顶座右铭 ===== -->
+<header class="topbar" id="topbar">
+  <div class="motto">
+    你的时间很贵　要极致认真的度过每一天　<span class="salary">日进千金（日薪:1000元）</span>
+  </div>
+  <div class="topmeta">
+    <span class="chip">本月倒计时：<b id="topCountdown">—</b> 天</span>
+    <span class="chip">当前月份：<b id="topMonth">—</b></span>
+    <span class="chip">冥想连续：<b id="topMed">0</b> 天</span>
+  </div>
+  <div class="topgoal" id="topGoal">本月目标尚未设置，请点击左侧【2. 更新本月自媒体目标】</div>
+</header>
+
+<div class="layout">
+  <!-- ===== 左侧固定功能菜单栏（常驻入口） ===== -->
+  <aside class="menu">
+    <div class="title">自 媒 体 自 律 工 作 台</div>
+    <button data-panel="p1" class="active"><span class="no">1</span>今日自律工作台</button>
+    <button data-panel="p2"><span class="no">2</span>更新本月自媒体目标</button>
+    <button data-panel="p3"><span class="no">3</span>生成下周自媒体规划</button>
+    <button data-panel="p4"><span class="no">4</span>汇总本周复盘总结</button>
+    <button data-panel="p5"><span class="no">5</span>调取全部历史复盘</button>
+    <button data-panel="p6"><span class="no">6</span>今日冥想显化界面</button>
+    <div class="foot">点击任意功能<br>弹出自媒体自律全屏页面<br>关闭不丢失 · 每日可复制保存</div>
+  </aside>
+
+  <!-- ===== 右侧主页引导 ===== -->
+  <main class="content">
+    <div class="card home">
+      <h2><span class="big">点击式可视化自媒体自律工作台</span></h2>
+      <p>请点击左侧任意功能按钮，将弹出对应的<b>整个页面窗口</b>，全屏填写、即点即出。</p>
+      <p>所有内容自动保存在本机，关闭页面不丢失。</p>
+    </div>
+  </main>
+</div>
+
+<!-- ===== 全屏弹出页面窗口 ===== -->
+<div class="overlay open" id="overlay">
+  <div class="overlay-bar">
+    <span class="ob-title">工作台</span>
+    <button data-panel="p1" class="active"><span class="no">1</span>今日自律</button>
+    <button data-panel="p2"><span class="no">2</span>本月目标</button>
+    <button data-panel="p3"><span class="no">3</span>下周规划</button>
+    <button data-panel="p4"><span class="no">4</span>本周复盘</button>
+    <button data-panel="p5"><span class="no">5</span>历史复盘</button>
+    <button data-panel="p6"><span class="no">6</span>冥想显化</button>
+    <button class="ob-close" id="obClose">✕ 收起</button>
+    <span class="ob-ver">全屏版 v2·0728</span>
+  </div>
+
+  <div class="overlay-body">
+
+    <!-- ====== 面板1：今日自律工作台 ====== -->
+    <section class="panel active" id="p1">
+      <div class="datebar">
+        <span class="lab">日期</span>
+        <input type="date" id="p1date">
+        <span class="countdown">本月倒计时：<b id="p1Countdown">—</b> 天</span>
+      </div>
+      <div class="card">
+        <h2>月目标 <span class="badge">自媒体账号运营 &amp; 变现目标</span></h2>
+        <div class="preset" id="p1Goal">本月目标尚未设置，请点击顶部【2. 本月目标】</div>
+      </div>
+      <div class="card">
+        <h2>每日定投自律清单</h2>
+        <ul class="checkin" id="checkinList">
+          <li data-k="earlyRise"><input type="checkbox" data-check="earlyRise"><span class="txt">每天早起1小时（5:00起床）</span></li>
+          <li data-k="exercise"><input type="checkbox" data-check="exercise"><span class="txt">运动让生命更有能量</span><span class="streak zero" data-streak="checkin.exercise">连续第 0 天</span></li>
+          <li data-k="reviewDiary"><input type="checkbox" data-check="reviewDiary"><span class="txt">回顾之前自媒体复盘日记</span></li>
+          <li data-k="reading"><input type="checkbox" data-check="reading"><span class="txt">每天阅读 1小时</span><span class="streak zero" data-streak="checkin.reading">连续第 0 天</span></li>
+          <li data-k="meditation"><input type="checkbox" data-check="meditation"><span class="txt">冥想</span><span class="streak zero" data-streak="checkin.meditation">连续第 0 天</span></li>
+          <li data-k="planDone"><input type="checkbox" data-check="planDone"><span class="txt">完成自媒体当日计划</span><span class="streak zero" data-streak="checkin.planDone">连续第 0 天</span></li>
+          <li data-k="earlySleep"><input type="checkbox" data-check="earlySleep"><span class="txt">23:00早睡才能有效的早起</span></li>
+        </ul>
+      </div>
+      <div class="card">
+        <h2>1、今日激励自己的话</h2>
+        <p class="hint">适配自媒体创作、搞钱、深耕成长</p>
+        <textarea data-bind="motivation" placeholder="写一句今天激励自己的话…"></textarea>
+
+        <div class="section-title">2、今日自媒体计划</div>
+        <p class="hint">遵循：年→月→周→日 层层拆解，只做自媒体落地实事</p>
+        <label class="fld">今天要做什么？</label>
+        <textarea data-bind="planWhat" placeholder="今天要做什么？"></textarea>
+        <label class="fld">准备怎么做？<small>（精细步骤：选题、写稿、排版、剪辑、发布、投流、互动、数据分析）</small></label>
+        <textarea data-bind="planHow" placeholder="准备怎么做？"></textarea>
+        <label class="fld">过程中需要注意什么？<small>（流量规则、内容雷区、账号调性、效率问题）</small></label>
+        <textarea data-bind="planCaution" placeholder="过程中需要注意什么？"></textarea>
+        <label class="fld">最终要得到什么可量化结果？</label>
+        <textarea data-bind="planResult" placeholder="最终要得到什么可量化结果？"></textarea>
+
+        <div class="section-title">3、今日计划完成情况</div>
+        <label class="fld">今天一天下来都做了什么（自媒体+高价值事）？</label>
+        <textarea data-bind="doneToday" placeholder="今天一天下来都做了什么？"></textarea>
+        <label class="fld">如果多做哪一步可以完成得更好？</label>
+        <textarea data-bind="doBetter" placeholder="如果多做哪一步可以完成得更好？"></textarea>
+        <label class="fld">今天花多少时间在有价值的自媒体事业上？</label>
+        <input type="text" data-bind="timeSpent" placeholder="如：6.5 小时">
+        <label class="fld">今天学到了什么自媒体运营/搞钱认知？</label>
+        <textarea data-bind="learned" placeholder="今天学到了什么认知？"></textarea>
+        <div class="grid2">
+          <div>
+            <label class="fld">今天赚到多少钱？</label>
+            <input type="number" step="0.01" data-bind="earned" placeholder="0">
+          </div>
+          <div>
+            <label class="fld">今天花了多少钱？</label>
+            <input type="number" step="0.01" data-bind="spent" placeholder="0">
+          </div>
+        </div>
+        <label class="fld">今天的情绪波动是怎么样的？为什么？</label>
+        <textarea data-bind="emotion" placeholder="今天的情绪波动？为什么？"></textarea>
+
+        <div class="section-title">4、每日深度反思</div>
+        <p class="hint">反思只为改变、不为自责，极度坦诚，输出可落地行动点</p>
+        <label class="fld">计划没完成的，根本原因是什么？</label>
+        <textarea data-bind="reflectReason" placeholder="根本原因是什么？"></textarea>
+        <label class="fld">如果提前多做哪一步，就能完美完成？</label>
+        <textarea data-bind="reflectImprove" placeholder="提前多做哪一步？"></textarea>
+        <label class="fld">专属可执行解决方案：</label>
+        <textarea data-bind="solution" placeholder="专属可执行解决方案"></textarea>
+
+        <div class="section-title">5、每日500字感悟随笔 <span class="streak zero" data-streak="essay" style="font-size:13px;"></span></div>
+        <p class="hint">今日见闻、自媒体思考、行业感悟、成长观点 + 真实内心感受；末尾必须落地一条：明日自媒体具体行动</p>
+        <textarea class="tall" data-bind="essay" id="essayBox" placeholder="写下今日500字感悟随笔…"></textarea>
+        <div class="wordcount">已写 <b id="essayCount">0</b> 字（建议 ≥ 500）</div>
+
+        <div class="section-title">6、今日小确幸 / 感恩日记</div>
+        <textarea data-bind="gratitude" placeholder="今日小确幸 / 感恩日记"></textarea>
+      </div>
+    </section>
+
+    <!-- ====== 面板2：更新本月自媒体目标 ====== -->
+    <section class="panel" id="p2">
+      <div class="card">
+        <h2>本月自媒体核心目标设置页 <span class="badge" id="p2Month">—</span></h2>
+        <p class="readonly-note">填写后自动保存。AI 自动计算并显示：本月剩余倒计时天数。</p>
+        <label class="fld">1、本月账号核心变现目标：</label>
+        <textarea data-bind-month="coreMonetize" placeholder="如：本月通过知识付费+商单变现 8000 元"></textarea>
+        <label class="fld">2、本月内容产出目标（条数/更新频率）：</label>
+        <textarea data-bind-month="contentOutput" placeholder="如：发布 30 条短视频，日更不中断"></textarea>
+        <label class="fld">3、本月流量 &amp; 涨粉目标：</label>
+        <textarea data-bind-month="trafficFans" placeholder="如：全平台净增粉 5000，单条破 10w 播放"></textarea>
+        <label class="fld">4、本月需要突破的短板（选题/剪辑/文案/心态/执行力）：</label>
+        <textarea data-bind-month="breakthrough" placeholder="如：选题命中率低，需建立选题库；剪辑效率待提升"></textarea>
+        <label class="fld">5、本月重点深耕赛道：</label>
+        <textarea data-bind-month="focusTrack" placeholder="如：职场成长+副业搞钱 双赛道深耕"></textarea>
+        <div class="datebar" style="margin-top:18px;background:var(--gold-soft);border-color:#ecd9a0;">
+          <span class="lab" style="color:var(--gold);">本月剩余倒计时</span>
+          <span class="countdown" style="color:var(--ink-soft);">还剩 <b id="p2Countdown" style="color:var(--gold);">—</b> 天</span>
+        </div>
+      </div>
+    </section>
+
+    <!-- ====== 面板3：生成下周自媒体规划 ====== -->
+    <section class="panel" id="p3">
+      <div class="card">
+        <h2>本周自媒体落地总规划 <span class="badge">基于本月总目标拆解</span></h2>
+        <p class="readonly-note">输出可直接落地的周计划。本月目标将自动带入作为参考。</p>
+        <div class="preset" id="p3GoalRef"></div>
+        <label class="fld">1、本周核心攻坚重点：</label>
+        <textarea data-bind-week="focus" placeholder="本周核心攻坚重点"></textarea>
+        <label class="fld">2、本周每日固定自媒体任务：</label>
+        <textarea data-bind-week="daily" placeholder="本周每日固定自媒体任务"></textarea>
+        <label class="fld">3、本周内容选题储备计划：</label>
+        <textarea data-bind-week="topics" placeholder="本周内容选题储备计划"></textarea>
+        <label class="fld">4、本周数据优化重点：</label>
+        <textarea data-bind-week="data" placeholder="本周数据优化重点"></textarea>
+        <label class="fld">5、本周变现推进计划：</label>
+        <textarea data-bind-week="monetize" placeholder="本周变现推进计划"></textarea>
+        <label class="fld">6、本周自律打卡目标：</label>
+        <textarea data-bind-week="checkin" placeholder="本周自律打卡目标"></textarea>
+      </div>
+    </section>
+
+    <!-- ====== 面板4：汇总本周复盘总结 ====== -->
+    <section class="panel" id="p4">
+      <div class="card">
+        <h2>本周自媒体复盘总总结</h2>
+        <label class="fld">1、本周完成的全部自媒体工作汇总：</label>
+        <textarea data-bind-weekly="work" placeholder="本周完成的全部自媒体工作汇总"></textarea>
+        <label class="fld">2、本周最大进步 &amp; 变现收获：</label>
+        <textarea data-bind-weekly="progress" placeholder="本周最大进步 & 变现收获"></textarea>
+        <label class="fld">3、本周高频拖延/卡点问题：</label>
+        <textarea data-bind-weekly="block" placeholder="本周高频拖延/卡点问题"></textarea>
+        <label class="fld">4、本周情绪、内耗、心态总结：</label>
+        <textarea data-bind-weekly="mood" placeholder="本周情绪、内耗、心态总结"></textarea>
+        <label class="fld">5、下周针对性优化改进方案：</label>
+        <textarea data-bind-weekly="improve" placeholder="下周针对性优化改进方案"></textarea>
+        <label class="fld">6、本周自律打卡累计数据统计：</label>
+        <textarea data-bind-weekly="stat" placeholder="本周自律打卡累计数据统计"></textarea>
+      </div>
+    </section>
+
+    <!-- ====== 面板5：调取全部历史复盘 ====== -->
+    <section class="panel" id="p5">
+      <div class="card">
+        <h2>全部历史复盘汇总</h2>
+        <p class="readonly-note">自动汇总：所有日记、打卡天数、收支记录、情绪变化、自媒体成长轨迹、高频问题沉淀。</p>
+        <div class="stat-grid" id="historyStats"></div>
+      </div>
+      <div class="card">
+        <h2>复盘日记时间线</h2>
+        <div id="diaryList"><div class="empty">暂无复盘记录，先点击【1. 今日自律】填写今日内容吧。</div></div>
+      </div>
+    </section>
+
+    <!-- ====== 面板6：今日冥想显化界面 ====== -->
+    <section class="panel" id="p6">
+      <div class="meditate">
+        <h2>自媒体丰盛显化冥想</h2>
+        <div class="verse">
+          <span>我是丰盛的磁石，</span>
+          <span>我拥有无限的可能性。</span>
+          <span>我有能力创造我想要的自媒体事业与生活。</span>
+          <span>我的内在智慧指引我前行，</span>
+          <span>我勇敢的跨越所有的挑战。</span>
+          <span>每一次的经历都让我更加强大。</span>
+        </div>
+        <div class="focus">
+          集中精力思考你自媒体最想得到的结果、最想达成的目标。<br>
+          每天高度专注设想账号涨粉、变现、出圈的画面。<br>
+          持续专注，激活创作灵感、运营思路、财富运气。
+        </div>
+        <div class="center">
+          <button class="big-btn" id="medBtn">我已完成今日冥想打卡</button>
+          <div class="streak-badge" id="medStreak">冥想连续第 0 天</div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+"use strict";
+const STORE_KEY = "media_discipline_workbench_v1";
+
+let STATE = {
+  goalMonth: "",
+  monthlyGoal: { coreMonetize:"", contentOutput:"", trafficFans:"", breakthrough:"", focusTrack:"" },
+  weekPlan: { focus:"", daily:"", topics:"", data:"", monetize:"", checkin:"" },
+  weeklyReview: { work:"", progress:"", block:"", mood:"", improve:"", stat:"" },
+  records: {}
+};
+let currentDate = fmt(new Date());
+
+function fmt(d){
+  const y=d.getFullYear(), m=String(d.getMonth()+1).padStart(2,"0"), day=String(d.getDate()).padStart(2,"0");
+  return `${y}-${m}-${day}`;
+}
+function load(){
+  try{
+    const raw = localStorage.getItem(STORE_KEY);
+    if(raw){
+      const p = JSON.parse(raw);
+      STATE = Object.assign(STATE, p);
+      STATE.monthlyGoal = Object.assign({coreMonetize:"",contentOutput:"",trafficFans:"",breakthrough:"",focusTrack:""}, p.monthlyGoal||{});
+      STATE.weekPlan = Object.assign({focus:"",daily:"",topics:"",data:"",monetize:"",checkin:""}, p.weekPlan||{});
+      STATE.weeklyReview = Object.assign({work:"",progress:"",block:"",mood:"",improve:"",stat:""}, p.weeklyReview||{});
+      STATE.records = p.records||{};
+    }
+  }catch(e){ console.warn("load fail",e); }
+}
+let saveTimer=null;
+function save(){
+  clearTimeout(saveTimer);
+  saveTimer=setTimeout(()=>{
+    try{ localStorage.setItem(STORE_KEY, JSON.stringify(STATE)); }catch(e){ console.warn(e); }
+  },120);
+}
+function getRec(date){
+  if(!STATE.records[date]){
+    STATE.records[date] = {
+      date, checkin:{earlyRise:false,exercise:false,reviewDiary:false,reading:false,meditation:false,planDone:false,earlySleep:false},
+      motivation:"", planWhat:"", planHow:"", planCaution:"", planResult:"",
+      doneToday:"", doBetter:"", timeSpent:"", learned:"", earned:"", spent:"", emotion:"",
+      reflectReason:"", reflectImprove:"", solution:"", essay:"", gratitude:""
+    };
+  }
+  return STATE.records[date];
+}
+function getField(obj, path){ return path.split(".").reduce((o,k)=> (o==null?undefined:o[k]), obj); }
+function setField(obj, path, val){
+  const ks=path.split("."); let o=obj;
+  for(let i=0;i<ks.length-1;i++){ if(o[ks[i]]==null) o[ks[i]]={}; o=o[ks[i]]; }
+  o[ks[ks.length-1]]=val;
+}
+function streak(field){
+  let d=new Date();
+  const today=fmt(d);
+  const rec=STATE.records[today];
+  let ok = rec && (field==="essay" ? (rec.essay||"").trim().length>0 : getField(rec,field));
+  if(!ok){ d.setDate(d.getDate()-1); }
+  let n=0;
+  while(true){
+    const key=fmt(d);
+    const r=STATE.records[key];
+    if(r && (field==="essay" ? (r.essay||"").trim().length>0 : getField(r,field))){ n++; d.setDate(d.getDate()-1); }
+    else break;
+  }
+  return n;
+}
+function daysLeftInMonth(){
+  const now=new Date();
+  const last=new Date(now.getFullYear(), now.getMonth()+1, 0);
+  return last.getDate()-now.getDate()+1;
+}
+function monthLabel(){
+  const now=new Date();
+  return `${now.getFullYear()}-${String(now.getMonth()+1).padStart(2,"0")}`;
+}
+let toastTimer=null;
+function toast(msg){
+  const t=document.getElementById("toast");
+  t.textContent=msg; t.classList.add("show");
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.classList.remove("show"),1600);
+}
+
+/* ---------- 渲染 ---------- */
+function renderTop(){
+  const cd=daysLeftInMonth();
+  document.getElementById("topCountdown").textContent=cd;
+  document.getElementById("topMonth").textContent=monthLabel();
+  document.getElementById("topMed").textContent=streak("checkin.meditation");
+  const g=STATE.monthlyGoal;
+  const parts=[];
+  if(g.coreMonetize) parts.push("变现："+g.coreMonetize);
+  if(g.contentOutput) parts.push("产出："+g.contentOutput);
+  if(g.trafficFans) parts.push("涨粉："+g.trafficFans);
+  if(g.focusTrack) parts.push("赛道："+g.focusTrack);
+  document.getElementById("topGoal").textContent = parts.length? parts.join("　|　") : "本月目标尚未设置，请点击顶部【2. 本月目标】";
+}
+function renderGoalPreset(){
+  const g=STATE.monthlyGoal;
+  const arr=[g.coreMonetize,g.contentOutput,g.trafficFans,g.breakthrough,g.focusTrack].filter(Boolean);
+  const text = arr.length? arr.map((s,i)=>`${i+1}. ${s}`).join("\n") : "本月目标尚未设置，请点击顶部【2. 本月目标】，规划将更精准。";
+  const el=document.getElementById("p1Goal"); if(el) el.textContent=text;
+  const ref=document.getElementById("p3GoalRef"); if(ref) ref.textContent = arr.length? "【本月目标参考】\n"+arr.map((s,i)=>`${i+1}. ${s}`).join("\n") : "本月目标尚未设置，请先在【2】设置目标，规划将更精准。";
+}
+function renderCountdowns(){
+  const cd=daysLeftInMonth();
+  const a=document.getElementById("p1Countdown"); if(a)a.textContent=cd;
+  const b=document.getElementById("p2Countdown"); if(b)b.textContent=cd;
+  const c=document.getElementById("p2Month"); if(c)c.textContent=monthLabel();
+}
+function renderP1(){
+  const rec=getRec(currentDate);
+  document.getElementById("p1date").value=currentDate;
+  document.querySelectorAll('#p1 [data-bind]').forEach(el=>{
+    const k=el.getAttribute("data-bind");
+    el.value = getField(rec,k)??"";
+  });
+  document.querySelectorAll('#checkinList [data-check]').forEach(cb=>{
+    const k=cb.getAttribute("data-check");
+    cb.checked = !!(rec.checkin && rec.checkin[k]);
+    cb.closest("li").classList.toggle("done", cb.checked);
+  });
+  const ec=document.getElementById("essayCount");
+  if(ec) ec.textContent=(rec.essay||"").length;
+  refreshStreaks();
+}
+function refreshStreaks(){
+  document.querySelectorAll('[data-streak]').forEach(el=>{
+    const f=el.getAttribute("data-streak");
+    const n=streak(f);
+    if(f==="essay"){
+      el.textContent = `（连续第 ${n} 天）`;
+      el.classList.toggle("zero", n===0);
+    }else{
+      el.textContent = `连续第 ${n} 天`;
+      el.classList.toggle("zero", n===0);
+    }
+  });
+}
+function renderMonth(){ document.querySelectorAll('#p2 [data-bind-month]').forEach(el=>{ el.value=getField(STATE.monthlyGoal,el.getAttribute("data-bind-month"))??""; }); }
+function renderWeek(){ document.querySelectorAll('#p3 [data-bind-week]').forEach(el=>{ el.value=getField(STATE.weekPlan,el.getAttribute("data-bind-week"))??""; }); }
+function renderWeekly(){ document.querySelectorAll('#p4 [data-bind-weekly]').forEach(el=>{ el.value=getField(STATE.weeklyReview,el.getAttribute("data-bind-weekly"))??""; }); }
+
+function renderHistory(){
+  const dates=Object.keys(STATE.records).filter(d=>{
+    const r=STATE.records[d];
+    return r && ((r.essay||"").trim() || Object.values(r.checkin||{}).some(Boolean) ||
+      [r.motivation,r.planWhat,r.doneToday,r.learned,r.reflectReason,r.solution,r.emotion,r.gratitude,r.planHow,r.planResult]
+        .some(v=>(v||"").trim()));
+  }).sort().reverse();
+
+  let recDays=dates.length, totalEarn=0, totalSpent=0;
+  dates.forEach(d=>{
+    const r=STATE.records[d];
+    totalEarn += parseFloat(r.earned)||0;
+    totalSpent += parseFloat(r.spent)||0;
+  });
+  const stats=[
+    {n:recDays, l:"复盘天数"},
+    {n:"¥"+(totalEarn-totalSpent).toFixed(0), l:"累计净收入"},
+    {n:"¥"+totalEarn.toFixed(0), l:"累计赚到"},
+    {n:"¥"+totalSpent.toFixed(0), l:"累计花掉"},
+  ];
+  document.getElementById("historyStats").innerHTML = stats.map(s=>`<div class="stat"><div class="n">${s.n}</div><div class="l">${s.l}</div></div>`).join("");
+
+  const list=document.getElementById("diaryList");
+  if(!dates.length){ list.innerHTML='<div class="empty">暂无复盘记录，先点击【1. 今日自律】填写今日内容吧。</div>'; return; }
+  list.innerHTML = dates.map(d=>{
+    const r=STATE.records[d];
+    const earn=parseFloat(r.earned)||0, spent=parseFloat(r.spent)||0;
+    const earnTxt = (earn||spent)? `赚¥${earn} / 花¥${spent}` : "";
+    const rows=[];
+    if(r.motivation) rows.push(`<div class="row"><b>激励：</b>${esc(r.motivation)}</div>`);
+    if(r.planWhat) rows.push(`<div class="row"><b>今日计划：</b>${esc(r.planWhat)}</div>`);
+    if(r.doneToday) rows.push(`<div class="row"><b>完成情况：</b>${esc(r.doneToday)}</div>`);
+    if(r.learned) rows.push(`<div class="row"><b>认知：</b>${esc(r.learned)}</div>`);
+    if(r.reflectReason) rows.push(`<div class="row"><b>反思：</b>${esc(r.reflectReason)}</div>`);
+    if(r.solution) rows.push(`<div class="row"><b>方案：</b>${esc(r.solution)}</div>`);
+    if(r.essay) rows.push(`<div class="row"><b>随笔：</b>${esc(r.essay)}</div>`);
+    if(r.emotion) rows.push(`<div class="row"><b>情绪：</b>${esc(r.emotion)}</div>`);
+    if(r.gratitude) rows.push(`<div class="row"><b>小确幸：</b>${esc(r.gratitude)}</div>`);
+    const chk=Object.entries(r.checkin||{}).filter(([k,v])=>v).map(([k])=>chkName(k)).join("、");
+    return `<div class="diary" data-date="${d}">
+      <div class="dh">
+        <span class="d">${d}</span>
+        ${chk?`<span class="tag">✓ ${chk}</span>`:""}
+        ${earnTxt?`<span class="earn">${earnTxt}</span>`:""}
+        <button class="mini-btn" data-open="${d}">打开编辑</button>
+      </div>
+      <div class="body">${rows.join("")||'<div class="readonly-note">当日未填写文字内容，仅打卡。</div>'}</div>
+    </div>`;
+  }).join("");
+
+  list.querySelectorAll('.dh').forEach(dh=>{
+    dh.addEventListener("click",e=>{
+      if(e.target.classList.contains("mini-btn")){
+        currentDate=e.target.getAttribute("data-open");
+        switchPanel("p1"); return;
+      }
+      dh.closest(".diary").classList.toggle("open");
+    });
+  });
+}
+function chkName(k){return {earlyRise:"早起",exercise:"运动",reviewDiary:"复盘",reading:"阅读",meditation:"冥想",planDone:"计划",earlySleep:"早睡"}[k]||k;}
+function esc(s){return (s||"").replace(/[&<>]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;"}[c]));}
+
+function renderMed(){
+  const n=streak("checkin.meditation");
+  document.getElementById("medStreak").textContent=`冥想连续第 ${n} 天`;
+  const rec=getRec(currentDate);
+  const btn=document.getElementById("medBtn");
+  btn.textContent = rec.checkin.meditation? "今日已打卡 ✓（点此取消）" : "我已完成今日冥想打卡";
+}
+
+/* ---------- 面板切换（全屏弹出） ---------- */
+function switchPanel(id){
+  openOverlay();
+  document.querySelectorAll('.overlay-bar button[data-panel]').forEach(b=>b.classList.toggle("active", b.getAttribute("data-panel")===id));
+  document.querySelectorAll('aside.menu button').forEach(b=>b.classList.toggle("active", b.getAttribute("data-panel")===id));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle("active", p.id===id));
+  if(id==="p1") renderP1();
+  if(id==="p2"){ renderMonth(); renderCountdowns(); }
+  if(id==="p3"){ renderWeek(); renderGoalPreset(); }
+  if(id==="p4") renderWeekly();
+  if(id==="p5") renderHistory();
+  if(id==="p6") renderMed();
+  const body=document.querySelector(".overlay-body");
+  if(body) body.scrollTop=0;
+}
+function openOverlay(){ document.getElementById("overlay").classList.add("open"); }
+function closeOverlay(){ document.getElementById("overlay").classList.remove("open"); }
+
+/* ---------- 事件 ---------- */
+function bindEvents(){
+  document.querySelectorAll(".menu button").forEach(b=> b.addEventListener("click",()=>switchPanel(b.getAttribute("data-panel"))));
+  document.querySelectorAll(".overlay-bar button[data-panel]").forEach(b=> b.addEventListener("click",()=>switchPanel(b.getAttribute("data-panel"))));
+  document.getElementById("obClose").addEventListener("click", closeOverlay);
+
+  document.getElementById("p1date").addEventListener("change",e=>{
+    currentDate=e.target.value||fmt(new Date());
+    renderP1();
+  });
+  document.querySelectorAll('#p1 [data-bind]').forEach(el=>{
+    el.addEventListener("input",()=>{
+      const rec=getRec(currentDate);
+      setField(rec, el.getAttribute("data-bind"), el.value);
+      if(el.id==="essayBox") document.getElementById("essayCount").textContent=el.value.length;
+      save();
+    });
+  });
+  document.querySelectorAll('#checkinList [data-check]').forEach(cb=>{
+    cb.addEventListener("change",()=>{
+      const rec=getRec(currentDate);
+      const k=cb.getAttribute("data-check");
+      rec.checkin[k]=cb.checked;
+      cb.closest("li").classList.toggle("done", cb.checked);
+      save(); refreshStreaks(); renderTop(); renderMed();
+    });
+  });
+  document.querySelectorAll('#p2 [data-bind-month]').forEach(el=>{
+    el.addEventListener("input",()=>{
+      setField(STATE.monthlyGoal, el.getAttribute("data-bind-month"), el.value);
+      STATE.goalMonth=monthLabel();
+      save(); renderTop(); renderGoalPreset();
+      toast("本月目标已自动保存");
+    });
+  });
+  document.querySelectorAll('#p3 [data-bind-week]').forEach(el=>{
+    el.addEventListener("input",()=>{ setField(STATE.weekPlan, el.getAttribute("data-bind-week"), el.value); save(); });
+  });
+  document.querySelectorAll('#p4 [data-bind-weekly]').forEach(el=>{
+    el.addEventListener("input",()=>{ setField(STATE.weeklyReview, el.getAttribute("data-bind-weekly"), el.value); save(); });
+  });
+  document.getElementById("medBtn").addEventListener("click",()=>{
+    const rec=getRec(currentDate);
+    rec.checkin.meditation=!rec.checkin.meditation;
+    save(); renderMed(); refreshStreaks(); renderTop();
+    toast(rec.checkin.meditation?"冥想打卡成功，丰盛已显化 ✨":"已取消今日冥想打卡");
+  });
+}
+
+function init(){
+  // 让全屏窗口从座右铭栏正下方开始
+  const tb=document.getElementById("topbar");
+  document.getElementById("overlay").style.top = tb.offsetHeight + "px";
+  load();
+  bindEvents();
+  renderTop(); renderGoalPreset(); renderCountdowns();
+  renderP1(); renderMonth(); renderWeek(); renderWeekly(); renderMed();
+  switchPanel("p1");
+  toast("加载成功！已为你搭建【点击式可视化自媒体自律工作台】，点击左侧功能栏弹出自媒体自律全屏页面，可直接开始使用！");
+}
+init();
+</script>
+<script>
+if('serviceWorker' in navigator){
+  window.addEventListener('load',function(){
+    navigator.serviceWorker.register('./service-worker.js').catch(function(){});
+  });
+}
+</script>
+</body>
+</html>
