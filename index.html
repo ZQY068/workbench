@@ -1093,7 +1093,7 @@ function switchPanel(id){
 const SYNC_KEY="media_workbench_sync_v1";
 const SYNC_REPO="ZQY068/workbench-sync";
 const SYNC_PATH="sync-data.json";
-let syncCfg={enabled:false, pass:"", token:"", lastSync:0};
+let syncCfg={enabled:false, pass:"", token:"", lastSync:0, lastError:""};
 let lastSha=null;
 function normalizeState(){
   STATE.monthlyGoal=Object.assign({coreMonetize:"",contentOutput:"",trafficFans:"",breakthrough:"",focusTrack:""}, STATE.monthlyGoal||{});
@@ -1174,7 +1174,9 @@ function schedulePush(){
 function renderSyncStatus(){
   const el=document.getElementById("syncStatus"); if(!el) return;
   if(!syncCfg.enabled){ el.textContent="未开启"; return; }
-  el.textContent= syncCfg.lastSync ? ("已开启 · 最近同步 "+new Date(syncCfg.lastSync).toLocaleString()) : "已开启（尚未同步）";
+  let t = syncCfg.lastSync ? ("已开启 · 最近同步 "+new Date(syncCfg.lastSync).toLocaleString()) : "已开启（尚未同步）";
+  if(syncCfg.lastError) t += "　⚠ "+syncCfg.lastError;
+  el.textContent=t;
 }
 function renderSyncPanel(){
   const p=document.getElementById("syncPass"); if(p) p.value=syncCfg.pass||"";
@@ -1281,7 +1283,11 @@ function bindEvents(){
     if(!syncCfg.pass||!syncCfg.token){ toast("请先保存口令和令牌"); return; }
     syncCfg.enabled=!syncCfg.enabled; saveSyncCfg(); renderSyncStatus();
     if(syncCfg.enabled){
-      pullData().then(ok=>{ if(ok){ rerenderActive(); toast("已开启并拉取云端数据"); } else toast("已开启自动同步"); }).catch(e=>toast(e.message));
+      pullData().then(ok=>{
+        if(ok) rerenderActive();
+        return pushData();
+      }).then(()=>{ toast("已开启自动同步，并已上传本机数据到云端"); renderSyncStatus(); })
+        .catch(e=>{ syncCfg.lastError=e.message; saveSyncCfg(); renderSyncStatus(); toast("同步出错："+e.message); });
     } else toast("已关闭自动同步");
   });
   document.getElementById("syncPull").addEventListener("click",()=>{

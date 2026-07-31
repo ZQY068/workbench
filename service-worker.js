@@ -1,5 +1,5 @@
 // 自媒体自律复盘工作台 · 离线缓存
-const CACHE = "wb-v5";
+const CACHE = "wb-v6";
 const ASSETS = ["./", "./index.html", "./icon.png", "./manifest.webmanifest"];
 
 self.addEventListener("install", (e) => {
