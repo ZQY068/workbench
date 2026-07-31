@@ -281,10 +281,32 @@
   .si-src .occ{color:var(--gold);font-weight:700;font-size:11px;margin-left:6px;}
   .si-body{font-size:13.5px;color:var(--ink);line-height:1.75;word-break:break-word;}
   .si-body mark.kw{background:#fff1b8;color:#7a5b00;border-radius:3px;padding:0 2px;font-weight:800;}
+  .search-res-bar .s-out{
+    border:1px solid var(--line);background:#fff;color:var(--brand);
+    border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;
+  }
+  .search-res-bar .s-out:hover{background:var(--brand);color:#fff;border-color:var(--brand);}
+  .search-filter{
+    display:flex;align-items:center;gap:10px;flex-wrap:wrap;
+    background:var(--panel);border-bottom:1px solid var(--line);padding:10px 16px;
+  }
+  .search-filter .sf-lab{font-size:12.5px;color:var(--ink-soft);font-weight:700;display:flex;align-items:center;gap:6px;}
+  .search-filter select,.search-filter input[type=date]{width:auto;padding:6px 10px;font-size:13px;}
+  .search-filter .sf-reset{padding:7px 14px;font-size:12.5px;}
+  .recent-row{margin:0 0 14px;font-size:12.5px;color:var(--ink-soft);line-height:2;}
+  .recent-chip{
+    display:inline-block;background:var(--brand-soft);color:var(--brand);
+    border:1px solid #cfe7e1;border-radius:999px;padding:4px 12px;margin:4px 6px 0 0;
+    font-size:12.5px;font-weight:700;cursor:pointer;
+  }
+  .recent-chip:hover{background:var(--brand);color:#fff;}
   @media(max-width:760px){
     .searchbar{margin:8px 10px 0;}
     .searchbar input{font-size:13px;}
     .searchbar button{padding:7px 13px;font-size:12.5px;}
+    .search-filter{gap:8px;padding:8px 12px;}
+    .search-filter select,.search-filter input[type=date]{font-size:12px;padding:5px 8px;}
+    .search-res-bar .s-out{padding:6px 11px;font-size:12px;}
   }
 </style>
 </head>
@@ -557,7 +579,24 @@
   <div class="search-res-bar">
     <span class="ob-title">搜索结果</span>
     <span class="ob-ver" id="searchMeta"></span>
+    <button class="s-out" id="searchCopy">复制</button>
+    <button class="s-out" id="searchDownload">下载</button>
     <button class="search-close" id="searchClose">✕ 关闭</button>
+  </div>
+  <div class="search-filter">
+    <label class="sf-lab">板块
+      <select id="filterSection">
+        <option value="">全部板块</option>
+        <option value="今日自律复盘">今日自律复盘</option>
+        <option value="本月自媒体目标">本月自媒体目标</option>
+        <option value="下周自媒体规划">下周自媒体规划</option>
+        <option value="本周复盘总结">本周复盘总结</option>
+        <option value="读书笔记">读书笔记</option>
+      </select>
+    </label>
+    <label class="sf-lab">起 <input type="date" id="filterFrom"></label>
+    <label class="sf-lab">止 <input type="date" id="filterTo"></label>
+    <button class="s-out sf-reset" id="filterReset">重置</button>
   </div>
   <div class="overlay-body" id="searchResults">
     <div class="empty">输入关键词后，这里会列出包含该词的往期复盘与读书笔记。</div>
@@ -576,7 +615,8 @@ let STATE = {
   weekPlan: { focus:"", daily:"", topics:"", data:"", monetize:"", checkin:"" },
   weeklyReview: { work:"", progress:"", block:"", mood:"", improve:"", stat:"" },
   records: {},
-  readingNotes: []
+  readingNotes: [],
+  recentSearches: []
 };
 let currentDate = fmt(new Date());
 
@@ -595,6 +635,7 @@ function load(){
       STATE.weeklyReview = Object.assign({work:"",progress:"",block:"",mood:"",improve:"",stat:""}, p.weeklyReview||{});
       STATE.records = p.records||{};
       STATE.readingNotes = p.readingNotes||[];
+      STATE.recentSearches = p.recentSearches||[];
     }
   }catch(e){ console.warn("load fail",e); }
 }
@@ -859,42 +900,61 @@ function buildSearchIndex(){
       ["解决方案","solution"],["500字随笔","essay"],["小确幸","gratitude"]];
     flds.forEach(([lab,k])=>{
       const t=(r[k]||"").trim();
-      if(t) items.push({section:"今日自律复盘", title:`${d} · ${lab}`, text:t, open:()=>{ currentDate=d; switchPanel("p1"); }});
+      if(t) items.push({section:"今日自律复盘", title:`${d} · ${lab}`, text:t, date:d, open:()=>{ currentDate=d; switchPanel("p1"); }});
     });
     const chk=Object.entries(r.checkin||{}).filter(([k,v])=>v).map(([k])=>chkName(k)).join("、");
-    if(chk) items.push({section:"今日自律复盘", title:`${d} · 自律打卡`, text:chk, open:()=>{ currentDate=d; switchPanel("p1"); }});
+    if(chk) items.push({section:"今日自律复盘", title:`${d} · 自律打卡`, text:chk, date:d, open:()=>{ currentDate=d; switchPanel("p1"); }});
   });
   const mg=STATE.monthlyGoal;
   const mgT=[mg.coreMonetize,mg.contentOutput,mg.trafficFans,mg.breakthrough,mg.focusTrack].filter(Boolean).join("\n");
-  if(mgT) items.push({section:"本月自媒体目标", title:`本月目标（${STATE.goalMonth||monthLabel()}）`, text:mgT, open:()=>switchPanel("p2")});
+  if(mgT) items.push({section:"本月自媒体目标", title:`本月目标（${STATE.goalMonth||monthLabel()}）`, text:mgT, date:"", open:()=>switchPanel("p2")});
   const wp=STATE.weekPlan;
   const wpT=[wp.focus,wp.daily,wp.topics,wp.data,wp.monetize,wp.checkin].filter(Boolean).join("\n");
-  if(wpT) items.push({section:"下周自媒体规划", title:"本周落地规划", text:wpT, open:()=>switchPanel("p3")});
+  if(wpT) items.push({section:"下周自媒体规划", title:"本周落地规划", text:wpT, date:"", open:()=>switchPanel("p3")});
   const wr=STATE.weeklyReview;
   const wrT=[wr.work,wr.progress,wr.block,wr.mood,wr.improve,wr.stat].filter(Boolean).join("\n");
-  if(wrT) items.push({section:"本周复盘总结", title:"本周复盘总结", text:wrT, open:()=>switchPanel("p4")});
+  if(wrT) items.push({section:"本周复盘总结", title:"本周复盘总结", text:wrT, date:"", open:()=>switchPanel("p4")});
   // 读书笔记
   (STATE.readingNotes||[]).forEach(n=>{
     const t=[n.book?("《"+n.book+"》"):"", n.excerpt,n.thought,n.action].filter(Boolean).join("\n");
-    if(t) items.push({section:"读书笔记", title:`${n.book||'未命名笔记'} · ${n.date}`, text:t,
+    if(t) items.push({section:"读书笔记", title:`${n.book||'未命名笔记'} · ${n.date}`, text:t, date:n.date,
       open:()=>{ switchPanel("p7"); setTimeout(()=>{ const el=document.querySelector(`#rnList .diary[data-id="${n.id}"]`); if(el) el.classList.add("open"); },60); }});
   });
   return items;
 }
 function doSearch(){
   const kw=document.getElementById("searchInput").value.trim();
+  const fsec=document.getElementById("filterSection").value;
+  const ffrom=document.getElementById("filterFrom").value;
+  const fto=document.getElementById("filterTo").value;
   const meta=document.getElementById("searchMeta");
   const box=document.getElementById("searchResults");
-  if(!kw){
-    box.innerHTML='<div class="empty">输入关键词后，这里会列出包含该词的往期复盘与读书笔记。</div>';
-    meta.textContent=""; hideSearch(); return;
-  }
-  const items=buildSearchIndex();
   const lower=kw.toLowerCase();
-  const hits=items.filter(it=>(it.text||"").toLowerCase().includes(lower));
+
+  // 记录最近搜索词（去重、最新在前、最多 8 条）
+  if(kw){
+    STATE.recentSearches=(STATE.recentSearches||[]).filter(k=>k!==kw);
+    STATE.recentSearches.unshift(kw);
+    if(STATE.recentSearches.length>8) STATE.recentSearches=STATE.recentSearches.slice(0,8);
+    save();
+  }
+
+  const items=buildSearchIndex();
+  let base=items;
+  if(kw) base=base.filter(it=>(it.text||"").toLowerCase().includes(lower));
+  if(fsec) base=base.filter(it=>it.section===fsec);
+  if(ffrom) base=base.filter(it=>(it.date||"")>=ffrom);
+  if(fto) base=base.filter(it=>(it.date||"")<=fto);
+  const hits=base;
+
+  const recent=recentHTML();
+  if(!kw && !fsec && !ffrom && !fto){
+    box.innerHTML=recent+'<div class="empty">输入关键词后，这里会列出包含该词的往期复盘与读书笔记。也可仅用板块 / 日期筛选浏览。</div>';
+    meta.textContent=""; bindRecent(box); hideSearch(); return;
+  }
   if(!hits.length){
-    box.innerHTML=`<div class="empty">没有找到包含 “${esc(kw)}” 的内容。换个关键词试试？</div>`;
-    meta.textContent="0 条结果"; showSearch(); return;
+    box.innerHTML=recent+`<div class="empty">没有找到符合条件的内容。换个关键词或调整筛选试试？</div>`;
+    meta.textContent="0 条结果"; bindRecent(box); showSearch(); return;
   }
   const order=["今日自律复盘","本月自媒体目标","下周自媒体规划","本周复盘总结","读书笔记"];
   const groups={};
@@ -906,17 +966,18 @@ function doSearch(){
     html+=`<div class="search-sec"><div class="search-sec-h">${sec}<span class="badge">${arr.length}</span></div>`;
     arr.forEach(it=>{
       const gi=lastHits.length; lastHits.push(it);
-      const sn=searchSnippet(it.text,kw);
-      const occ=sn.count>1?`<span class="occ">命中 ${sn.count} 处</span>`:"";
+      const bodyHtml = kw ? searchSnippet(it.text,kw).html : esc(it.text.slice(0,160)+(it.text.length>160?"…":""));
+      const occ=(kw && searchSnippet(it.text,kw).count>1)?`<span class="occ">命中 ${searchSnippet(it.text,kw).count} 处</span>`:"";
       html+=`<div class="search-item" data-gi="${gi}">
         <div class="si-src">${esc(it.title)}${occ}</div>
-        <div class="si-body">${sn.html}</div>
+        <div class="si-body">${bodyHtml}</div>
       </div>`;
     });
     html+="</div>";
   });
-  box.innerHTML=html;
+  box.innerHTML=recent+html;
   meta.textContent=`共 ${hits.length} 条结果`;
+  bindRecent(box);
   box.querySelectorAll(".search-item").forEach(el=>{
     el.addEventListener("click",()=>{
       const it=lastHits[+el.getAttribute("data-gi")];
@@ -925,6 +986,60 @@ function doSearch(){
     });
   });
   showSearch();
+}
+function recentHTML(){
+  const arr=STATE.recentSearches||[];
+  if(!arr.length) return "";
+  const chips=arr.map(k=>`<span class="recent-chip" data-k="${esc(k)}">${esc(k)}</span>`).join("");
+  return `<div class="recent-row">最近搜索：${chips}</div>`;
+}
+function bindRecent(box){
+  box.querySelectorAll(".recent-chip").forEach(c=>{
+    c.addEventListener("click",()=>{
+      document.getElementById("searchInput").value=c.getAttribute("data-k");
+      doSearch();
+    });
+  });
+}
+function exportText(){
+  const kw=document.getElementById("searchInput").value.trim();
+  const fsec=document.getElementById("filterSection").value;
+  const ffrom=document.getElementById("filterFrom").value;
+  const fto=document.getElementById("filterTo").value;
+  const lines=[];
+  lines.push("自媒体自律复盘 · 搜索结果导出");
+  lines.push("关键词："+(kw||"(无)")+(fsec?"　板块："+fsec:"")+(ffrom?"　起："+ffrom:"")+(fto?"　止："+fto:""));
+  lines.push("导出时间："+fmt(new Date()));
+  lines.push("共 "+lastHits.length+" 条");
+  lines.push("==============================");
+  lastHits.forEach((it,i)=>{
+    lines.push("");
+    lines.push("【"+(i+1)+"】"+it.section+"　"+it.title);
+    lines.push(it.text);
+  });
+  return lines.join("\n");
+}
+function copyResults(){
+  const txt=exportText();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(txt).then(()=>toast("已复制搜索结果到剪贴板")).catch(()=>fallbackCopy(txt));
+  } else fallbackCopy(txt);
+}
+function fallbackCopy(txt){
+  const ta=document.createElement("textarea"); ta.value=txt; ta.style.position="fixed"; ta.style.opacity="0";
+  document.body.appendChild(ta); ta.select();
+  try{ document.execCommand("copy"); toast("已复制搜索结果"); }catch(e){ toast("复制失败，请手动选择"); }
+  document.body.removeChild(ta);
+}
+function downloadResults(){
+  const txt=exportText();
+  const blob=new Blob([txt],{type:"text/plain;charset=utf-8"});
+  const a=document.createElement("a");
+  const name="复盘搜索_"+(document.getElementById("searchInput").value.trim()||"全部")+"_"+fmt(new Date())+".txt";
+  a.href=URL.createObjectURL(blob); a.download=name;
+  document.body.appendChild(a); a.click();
+  setTimeout(()=>{ URL.revokeObjectURL(a.href); document.body.removeChild(a); },100);
+  toast("已开始下载 txt");
 }
 function showSearch(){ document.getElementById("searchOverlay").classList.add("open"); }
 function hideSearch(){ document.getElementById("searchOverlay").classList.remove("open"); }
@@ -1025,6 +1140,18 @@ function bindEvents(){
     hideSearch(); sInput.focus();
   });
   document.getElementById("searchClose").addEventListener("click", hideSearch);
+  /* 搜索筛选与导出 */
+  document.getElementById("filterSection").addEventListener("change", doSearch);
+  document.getElementById("filterFrom").addEventListener("change", doSearch);
+  document.getElementById("filterTo").addEventListener("change", doSearch);
+  document.getElementById("filterReset").addEventListener("click",()=>{
+    document.getElementById("filterSection").value="";
+    document.getElementById("filterFrom").value="";
+    document.getElementById("filterTo").value="";
+    doSearch();
+  });
+  document.getElementById("searchCopy").addEventListener("click", copyResults);
+  document.getElementById("searchDownload").addEventListener("click", downloadResults);
 }
 
 function init(){
