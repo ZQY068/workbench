@@ -225,6 +225,67 @@
     .checkin li{flex-wrap:wrap;}
     .grid2,.grid3{grid-template-columns:1fr;}
   }
+
+  /* ===== 顶部关键词搜索栏 ===== */
+  .searchbar{
+    display:flex;align-items:center;gap:8px;
+    max-width:760px;margin:10px auto 0;
+    background:#fff;border-radius:999px;padding:5px 6px 5px 16px;
+    box-shadow:0 2px 10px rgba(0,0,0,.18);
+  }
+  .searchbar input{
+    flex:1;border:none;background:transparent;outline:none;
+    font-size:14px;color:var(--ink);font-family:inherit;padding:6px 0;
+  }
+  .searchbar input::placeholder{color:#8a94a3;}
+  .searchbar button{
+    border:none;border-radius:999px;padding:8px 16px;font-size:13px;font-weight:800;
+    cursor:pointer;white-space:nowrap;
+  }
+  .searchbar .s-btn{background:var(--brand);color:#fff;}
+  .searchbar .s-btn:hover{filter:brightness(1.06);}
+  .searchbar .s-clear{background:var(--bg);color:var(--ink-soft);padding:8px 12px;}
+  .searchbar .s-clear:hover{background:#e9edf2;}
+  /* ===== 搜索结果浮层 ===== */
+  .search-overlay{
+    position:fixed;left:0;right:0;bottom:0;top:130px;background:var(--bg);z-index:95;
+    display:none;flex-direction:column;
+  }
+  .search-overlay.open{display:flex;}
+  .search-res-bar{
+    position:sticky;top:0;z-index:5;flex:0 0 auto;
+    display:flex;align-items:center;gap:10px;
+    background:var(--panel);border-bottom:1px solid var(--line);
+    padding:12px 16px;
+  }
+  .search-res-bar .ob-title{font-weight:800;color:var(--brand);font-size:14px;}
+  .search-res-bar .ob-ver{margin-left:auto;font-size:12px;color:var(--ink-soft);}
+  .search-res-bar .search-close{
+    border:1px solid var(--line);background:#fff;color:var(--ink-soft);
+    border-radius:999px;padding:7px 14px;font-size:13px;font-weight:700;cursor:pointer;white-space:nowrap;
+  }
+  .search-res-bar .search-close:hover{background:var(--danger);color:#fff;border-color:var(--danger);}
+  .search-sec{margin:2px 0 6px;}
+  .search-sec-h{
+    font-size:14px;font-weight:800;color:var(--ink);margin:16px 0 10px;
+    padding-left:10px;border-left:4px solid var(--brand);
+    display:flex;align-items:center;gap:8px;
+  }
+  .search-sec-h .badge{font-size:11px;}
+  .search-item{
+    background:var(--panel);border:1px solid var(--line);border-radius:12px;
+    padding:12px 16px;margin-bottom:10px;cursor:pointer;transition:.15s;
+  }
+  .search-item:hover{background:var(--brand-soft);border-color:#bfe3da;}
+  .si-src{font-size:12.5px;color:var(--brand);font-weight:800;margin-bottom:5px;}
+  .si-src .occ{color:var(--gold);font-weight:700;font-size:11px;margin-left:6px;}
+  .si-body{font-size:13.5px;color:var(--ink);line-height:1.75;word-break:break-word;}
+  .si-body mark.kw{background:#fff1b8;color:#7a5b00;border-radius:3px;padding:0 2px;font-weight:800;}
+  @media(max-width:760px){
+    .searchbar{margin:8px 10px 0;}
+    .searchbar input{font-size:13px;}
+    .searchbar button{padding:7px 13px;font-size:12.5px;}
+  }
 </style>
 </head>
 <body>
@@ -240,6 +301,11 @@
     <span class="chip">冥想连续：<b id="topMed">0</b> 天</span>
   </div>
   <div class="topgoal" id="topGoal">本月目标尚未设置，请点击左侧【2. 更新本月自媒体目标】</div>
+  <div class="searchbar">
+    <input type="text" id="searchInput" placeholder="🔍 输入关键词，搜索往期复盘 / 读书笔记…" autocomplete="off">
+    <button class="s-btn" id="searchBtn">搜索</button>
+    <button class="s-clear" id="searchClear">✕</button>
+  </div>
 </header>
 
 <div class="layout">
@@ -483,6 +549,18 @@
       </div>
     </section>
 
+  </div>
+</div>
+
+<!-- ===== 关键词搜索结果浮层 ===== -->
+<div class="search-overlay" id="searchOverlay">
+  <div class="search-res-bar">
+    <span class="ob-title">搜索结果</span>
+    <span class="ob-ver" id="searchMeta"></span>
+    <button class="search-close" id="searchClose">✕ 关闭</button>
+  </div>
+  <div class="overlay-body" id="searchResults">
+    <div class="empty">输入关键词后，这里会列出包含该词的往期复盘与读书笔记。</div>
   </div>
 </div>
 
@@ -739,6 +817,118 @@ function renderReadingNotes(){
   });
 }
 
+/* ---------- 关键词搜索 ---------- */
+let lastHits=[];
+let searchTimer=null;
+function highlight(text,kw){
+  if(!kw) return esc(text);
+  const lower=text.toLowerCase(), kl=kw.toLowerCase();
+  let out="", i=0, idx;
+  while((idx=lower.indexOf(kl,i))>=0){
+    out+=esc(text.slice(i,idx));
+    out+=`<mark class="kw">${esc(text.slice(idx,idx+kw.length))}</mark>`;
+    i=idx+kw.length;
+  }
+  out+=esc(text.slice(i));
+  return out;
+}
+function searchSnippet(text,kw){
+  const kl=kw.toLowerCase(), lower=text.toLowerCase();
+  let count=0, p=0;
+  while((p=lower.indexOf(kl,p))>=0){ count++; p+=kl.length; }
+  if(count===0) return {html:esc(text.slice(0,140)+(text.length>140?"…":"")), count:0};
+  const first=lower.indexOf(kl);
+  let s=text, prefix="", suffix="";
+  if(text.length>200){
+    const start=Math.max(0,first-40);
+    const end=Math.min(text.length, first+kl.length+150);
+    s=text.slice(start,end);
+    if(start>0) prefix="…";
+    if(end<text.length) suffix="…";
+  }
+  return {html:prefix+highlight(s,kw)+suffix, count};
+}
+function buildSearchIndex(){
+  const items=[];
+  // 逐日复盘（往期工作内容）
+  Object.keys(STATE.records).sort().forEach(d=>{
+    const r=STATE.records[d];
+    const flds=[["激励","motivation"],["今日计划","planWhat"],["准备怎么做","planHow"],["注意事项","planCaution"],
+      ["可量化结果","planResult"],["完成情况","doneToday"],["如何更好","doBetter"],["用时","timeSpent"],
+      ["今日认知","learned"],["情绪","emotion"],["反思原因","reflectReason"],["提前改进","reflectImprove"],
+      ["解决方案","solution"],["500字随笔","essay"],["小确幸","gratitude"]];
+    flds.forEach(([lab,k])=>{
+      const t=(r[k]||"").trim();
+      if(t) items.push({section:"今日自律复盘", title:`${d} · ${lab}`, text:t, open:()=>{ currentDate=d; switchPanel("p1"); }});
+    });
+    const chk=Object.entries(r.checkin||{}).filter(([k,v])=>v).map(([k])=>chkName(k)).join("、");
+    if(chk) items.push({section:"今日自律复盘", title:`${d} · 自律打卡`, text:chk, open:()=>{ currentDate=d; switchPanel("p1"); }});
+  });
+  const mg=STATE.monthlyGoal;
+  const mgT=[mg.coreMonetize,mg.contentOutput,mg.trafficFans,mg.breakthrough,mg.focusTrack].filter(Boolean).join("\n");
+  if(mgT) items.push({section:"本月自媒体目标", title:`本月目标（${STATE.goalMonth||monthLabel()}）`, text:mgT, open:()=>switchPanel("p2")});
+  const wp=STATE.weekPlan;
+  const wpT=[wp.focus,wp.daily,wp.topics,wp.data,wp.monetize,wp.checkin].filter(Boolean).join("\n");
+  if(wpT) items.push({section:"下周自媒体规划", title:"本周落地规划", text:wpT, open:()=>switchPanel("p3")});
+  const wr=STATE.weeklyReview;
+  const wrT=[wr.work,wr.progress,wr.block,wr.mood,wr.improve,wr.stat].filter(Boolean).join("\n");
+  if(wrT) items.push({section:"本周复盘总结", title:"本周复盘总结", text:wrT, open:()=>switchPanel("p4")});
+  // 读书笔记
+  (STATE.readingNotes||[]).forEach(n=>{
+    const t=[n.book?("《"+n.book+"》"):"", n.excerpt,n.thought,n.action].filter(Boolean).join("\n");
+    if(t) items.push({section:"读书笔记", title:`${n.book||'未命名笔记'} · ${n.date}`, text:t,
+      open:()=>{ switchPanel("p7"); setTimeout(()=>{ const el=document.querySelector(`#rnList .diary[data-id="${n.id}"]`); if(el) el.classList.add("open"); },60); }});
+  });
+  return items;
+}
+function doSearch(){
+  const kw=document.getElementById("searchInput").value.trim();
+  const meta=document.getElementById("searchMeta");
+  const box=document.getElementById("searchResults");
+  if(!kw){
+    box.innerHTML='<div class="empty">输入关键词后，这里会列出包含该词的往期复盘与读书笔记。</div>';
+    meta.textContent=""; hideSearch(); return;
+  }
+  const items=buildSearchIndex();
+  const lower=kw.toLowerCase();
+  const hits=items.filter(it=>(it.text||"").toLowerCase().includes(lower));
+  if(!hits.length){
+    box.innerHTML=`<div class="empty">没有找到包含 “${esc(kw)}” 的内容。换个关键词试试？</div>`;
+    meta.textContent="0 条结果"; showSearch(); return;
+  }
+  const order=["今日自律复盘","本月自媒体目标","下周自媒体规划","本周复盘总结","读书笔记"];
+  const groups={};
+  hits.forEach(it=>{ (groups[it.section]=groups[it.section]||[]).push(it); });
+  lastHits=[];
+  let html="";
+  order.forEach(sec=>{
+    const arr=groups[sec]; if(!arr) return;
+    html+=`<div class="search-sec"><div class="search-sec-h">${sec}<span class="badge">${arr.length}</span></div>`;
+    arr.forEach(it=>{
+      const gi=lastHits.length; lastHits.push(it);
+      const sn=searchSnippet(it.text,kw);
+      const occ=sn.count>1?`<span class="occ">命中 ${sn.count} 处</span>`:"";
+      html+=`<div class="search-item" data-gi="${gi}">
+        <div class="si-src">${esc(it.title)}${occ}</div>
+        <div class="si-body">${sn.html}</div>
+      </div>`;
+    });
+    html+="</div>";
+  });
+  box.innerHTML=html;
+  meta.textContent=`共 ${hits.length} 条结果`;
+  box.querySelectorAll(".search-item").forEach(el=>{
+    el.addEventListener("click",()=>{
+      const it=lastHits[+el.getAttribute("data-gi")];
+      hideSearch();
+      if(it) it.open();
+    });
+  });
+  showSearch();
+}
+function showSearch(){ document.getElementById("searchOverlay").classList.add("open"); }
+function hideSearch(){ document.getElementById("searchOverlay").classList.remove("open"); }
+
 /* ---------- 面板切换（全屏弹出） ---------- */
 function switchPanel(id){
   openOverlay();
@@ -823,12 +1013,25 @@ function bindEvents(){
     renderReadingNotes();
     toast("读书笔记已保存 ✓");
   });
+  /* 搜索栏事件 */
+  const sInput=document.getElementById("searchInput");
+  sInput.addEventListener("input",()=>{ clearTimeout(searchTimer); searchTimer=setTimeout(doSearch,220); });
+  sInput.addEventListener("keydown",e=>{ if(e.key==="Enter"){ clearTimeout(searchTimer); doSearch(); } });
+  document.getElementById("searchBtn").addEventListener("click",()=>{ clearTimeout(searchTimer); doSearch(); });
+  document.getElementById("searchClear").addEventListener("click",()=>{
+    sInput.value="";
+    document.getElementById("searchResults").innerHTML='<div class="empty">输入关键词后，这里会列出包含该词的往期复盘与读书笔记。</div>';
+    document.getElementById("searchMeta").textContent="";
+    hideSearch(); sInput.focus();
+  });
+  document.getElementById("searchClose").addEventListener("click", hideSearch);
 }
 
 function init(){
   // 让全屏窗口从座右铭栏正下方开始
   const tb=document.getElementById("topbar");
   document.getElementById("overlay").style.top = tb.offsetHeight + "px";
+  document.getElementById("searchOverlay").style.top = tb.offsetHeight + "px";
   load();
   bindEvents();
   renderTop(); renderGoalPreset(); renderCountdowns();
