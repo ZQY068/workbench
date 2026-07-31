@@ -252,6 +252,7 @@
     <button data-panel="p4"><span class="no">4</span>汇总本周复盘总结</button>
     <button data-panel="p5"><span class="no">5</span>调取全部历史复盘</button>
     <button data-panel="p6"><span class="no">6</span>今日冥想显化界面</button>
+    <button data-panel="p7"><span class="no">7</span>读书笔记</button>
     <div class="foot">点击任意功能<br>弹出自媒体自律全屏页面<br>关闭不丢失 · 每日可复制保存</div>
   </aside>
 
@@ -275,6 +276,7 @@
     <button data-panel="p4"><span class="no">4</span>本周复盘</button>
     <button data-panel="p5"><span class="no">5</span>历史复盘</button>
     <button data-panel="p6"><span class="no">6</span>冥想显化</button>
+    <button data-panel="p7"><span class="no">7</span>读书笔记</button>
     <button class="ob-close" id="obClose">✕ 收起</button>
     <span class="ob-ver">全屏版 v2·0728</span>
   </div>
@@ -460,6 +462,27 @@
       </div>
     </section>
 
+    <!-- ====== 面板7：读书笔记 ====== -->
+    <section class="panel" id="p7">
+      <div class="card">
+        <h2>读书笔记 <span class="badge">输入即沉淀</span></h2>
+        <p class="hint">每读完一本书记一笔。文字简洁、逻辑分层、清晰分段，不要大段无隔断文字。</p>
+        <label class="fld">书籍名称 &amp; 作者</label>
+        <input type="text" id="rnBook" placeholder="如：《认知觉醒》周岭">
+        <label class="fld">精华摘录（原文摘抄）</label>
+        <textarea id="rnExcerpt" placeholder="摘录书中打动你的原句，分条列出"></textarea>
+        <label class="fld">个人感悟思考</label>
+        <textarea id="rnThought" placeholder="这本书刷新了你哪些观念？联想到什么？"></textarea>
+        <label class="fld">可落地行动启发</label>
+        <textarea id="rnAction" placeholder="接下来可以马上做的一件事"></textarea>
+        <button class="mini-btn" id="rnSave" style="margin-top:14px;padding:8px 18px;">＋ 保存这条笔记</button>
+      </div>
+      <div class="card">
+        <h2>我的读书笔记 <span class="badge" id="rnCount">0</span></h2>
+        <div id="rnList"><div class="empty">还没有读书笔记，读完一本书就来记一笔吧。</div></div>
+      </div>
+    </section>
+
   </div>
 </div>
 
@@ -474,7 +497,8 @@ let STATE = {
   monthlyGoal: { coreMonetize:"", contentOutput:"", trafficFans:"", breakthrough:"", focusTrack:"" },
   weekPlan: { focus:"", daily:"", topics:"", data:"", monetize:"", checkin:"" },
   weeklyReview: { work:"", progress:"", block:"", mood:"", improve:"", stat:"" },
-  records: {}
+  records: {},
+  readingNotes: []
 };
 let currentDate = fmt(new Date());
 
@@ -492,6 +516,7 @@ function load(){
       STATE.weekPlan = Object.assign({focus:"",daily:"",topics:"",data:"",monetize:"",checkin:""}, p.weekPlan||{});
       STATE.weeklyReview = Object.assign({work:"",progress:"",block:"",mood:"",improve:"",stat:""}, p.weeklyReview||{});
       STATE.records = p.records||{};
+      STATE.readingNotes = p.readingNotes||[];
     }
   }catch(e){ console.warn("load fail",e); }
 }
@@ -681,6 +706,38 @@ function renderMed(){
   const btn=document.getElementById("medBtn");
   btn.textContent = rec.checkin.meditation? "今日已打卡 ✓（点此取消）" : "我已完成今日冥想打卡";
 }
+function renderReadingNotes(){
+  const list=document.getElementById("rnList");
+  const notes=STATE.readingNotes||[];
+  const cnt=document.getElementById("rnCount"); if(cnt) cnt.textContent=notes.length;
+  if(!notes.length){ list.innerHTML='<div class="empty">还没有读书笔记，读完一本书就来记一笔吧。</div>'; return; }
+  list.innerHTML = notes.slice().reverse().map(n=>{
+    const rows=[];
+    if(n.excerpt) rows.push(`<div class="row"><b>精华摘录：</b>${esc(n.excerpt)}</div>`);
+    if(n.thought) rows.push(`<div class="row"><b>感悟思考：</b>${esc(n.thought)}</div>`);
+    if(n.action) rows.push(`<div class="row"><b>行动启发：</b>${esc(n.action)}</div>`);
+    return `<div class="diary" data-id="${n.id}">
+      <div class="dh">
+        <span class="d">${esc(n.book)||'未命名笔记'}</span>
+        <span class="tag">${n.date}</span>
+        <button class="mini-btn rn-del" data-id="${n.id}">删除</button>
+      </div>
+      <div class="body">${rows.join("")||'<div class="readonly-note">无内容</div>'}</div>
+    </div>`;
+  }).join("");
+  list.querySelectorAll('.dh').forEach(dh=>{
+    dh.addEventListener("click",e=>{
+      if(e.target.classList.contains("rn-del")){
+        const id=e.target.getAttribute("data-id");
+        STATE.readingNotes=STATE.readingNotes.filter(x=>x.id!==id);
+        save(); renderReadingNotes();
+        toast("已删除该笔记");
+        return;
+      }
+      dh.closest(".diary").classList.toggle("open");
+    });
+  });
+}
 
 /* ---------- 面板切换（全屏弹出） ---------- */
 function switchPanel(id){
@@ -694,6 +751,7 @@ function switchPanel(id){
   if(id==="p4") renderWeekly();
   if(id==="p5") renderHistory();
   if(id==="p6") renderMed();
+  if(id==="p7") renderReadingNotes();
   const body=document.querySelector(".overlay-body");
   if(body) body.scrollTop=0;
 }
@@ -746,6 +804,24 @@ function bindEvents(){
     rec.checkin.meditation=!rec.checkin.meditation;
     save(); renderMed(); refreshStreaks(); renderTop();
     toast(rec.checkin.meditation?"冥想打卡成功，丰盛已显化 ✨":"已取消今日冥想打卡");
+  });
+  document.getElementById("rnSave").addEventListener("click",()=>{
+    const book=document.getElementById("rnBook").value.trim();
+    if(!book){ toast("请先填写书籍名称 & 作者"); return; }
+    const note={ id:"rn_"+Date.now(), book,
+      excerpt:document.getElementById("rnExcerpt").value,
+      thought:document.getElementById("rnThought").value,
+      action:document.getElementById("rnAction").value,
+      date:fmt(new Date()) };
+    STATE.readingNotes=STATE.readingNotes||[];
+    STATE.readingNotes.push(note);
+    save();
+    document.getElementById("rnBook").value="";
+    document.getElementById("rnExcerpt").value="";
+    document.getElementById("rnThought").value="";
+    document.getElementById("rnAction").value="";
+    renderReadingNotes();
+    toast("读书笔记已保存 ✓");
   });
 }
 
