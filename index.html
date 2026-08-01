@@ -56,6 +56,7 @@
     padding:5px 12px;border-radius:999px;
   }
   .topmeta .chip b{color:#ffe9a8;}
+  .topmeta .chip.ver{background:#e8f0ff;color:#2f6df6;border-color:#cfe0ff;font-weight:600;}
   .topgoal{
     max-width:760px;margin:8px auto 0;font-size:12.5px;
     background:rgba(255,255,255,.08);border:1px dashed rgba(255,255,255,.25);
@@ -321,6 +322,7 @@
     <span class="chip">本月倒计时：<b id="topCountdown">—</b> 天</span>
     <span class="chip">当前月份：<b id="topMonth">—</b></span>
     <span class="chip">冥想连续：<b id="topMed">0</b> 天</span>
+    <span class="chip ver" id="wbVer">—</span>
   </div>
   <div class="topgoal" id="topGoal">本月目标尚未设置，请点击左侧【2. 更新本月自媒体目标】</div>
   <div class="searchbar">
@@ -577,7 +579,7 @@
     <section class="panel" id="p8">
       <div class="card">
         <h2>数据云同步 <span class="badge">跨设备自动同步</span></h2>
-        <p class="hint">让手机与电脑浏览器自动同步全部工作台数据。数据会用你设定的「同步口令」加密后存进本仓库（仓库虽公开，没有口令谁也读不了）；两端填入相同的口令与令牌即可自动同步。</p>
+        <p class="hint">让手机与电脑浏览器自动同步全部工作台数据。数据会用你设定的「同步口令」AES 加密后，存进本仓库的 <b>sync 分支</b>（与主站同仓库、同令牌，无需再建第二个仓库、无需换令牌）；两端填入相同的口令与令牌即可自动同步。</p>
         <div class="datebar">
           <span class="lab">同步状态</span>
           <span class="countdown" id="syncStatus">未开启</span>
@@ -585,14 +587,14 @@
         <label class="fld">同步口令（两端必须一致，用于加密，本地保存）</label>
         <input type="password" id="syncPass" placeholder="设定一个只有你知道的口令" autocomplete="off">
         <button class="mini-btn" id="syncSavePass" style="margin-top:8px;">保存口令</button>
-        <label class="fld">GitHub 令牌（repo 权限，仅存本机，两端各填一次）</label>
+        <label class="fld">GitHub 令牌（需有 workbench 仓库的「Contents 读写」权限，仅存本机，两端各填一次）</label>
         <input type="password" id="syncToken" placeholder="ghp_..." autocomplete="off">
         <button class="mini-btn" id="syncSaveToken" style="margin-top:8px;">保存令牌</button>
         <div class="section-title">操作</div>
         <button class="mini-btn" id="syncToggle">开启自动同步</button>
         <button class="mini-btn" id="syncPull">立即拉取</button>
         <button class="mini-btn" id="syncPush">立即推送</button>
-        <p class="readonly-note" style="margin-top:12px;">令牌仅在本地浏览器保存，不会上传。建议用「仅限本仓库」的精细令牌并定期吊销；口令丢了将无法解密历史数据，请牢记。</p>
+        <p class="readonly-note" style="margin-top:12px;">令牌仅本地保存，不上传。<b>你部署本工作台用的那个令牌（对 workbench 有读写权限）就能直接用</b>，不必再单独建仓库或换令牌；口令丢了将无法解密历史数据，请牢记。</p>
       </div>
     </section>
 
@@ -1091,7 +1093,8 @@ function switchPanel(id){
 
 /* ---------- 数据云同步（GitHub 仓库 + AES 加密） ---------- */
 const SYNC_KEY="media_workbench_sync_v1";
-const SYNC_REPO="ZQY068/workbench-sync";
+const SYNC_REPO="ZQY068/workbench";   // 与主站同仓库，避免再建第二个仓库导致令牌无权限
+const SYNC_BRANCH="sync";              // 独立分支存放加密同步数据，不会触发 Pages 重建
 const SYNC_PATH="sync-data.json";
 let syncCfg={enabled:false, pass:"", token:"", lastSync:0, lastError:""};
 let lastSha=null;
@@ -1126,39 +1129,89 @@ async function decryptState(blob, pass){
   return JSON.parse(new TextDecoder().decode(pt));
 }
 async function ghGet(){
-  const r=await fetch(`https://api.github.com/repos/${SYNC_REPO}/contents/${SYNC_PATH}`, {headers:{Authorization:`Bearer ${syncCfg.token}`, Accept:"application/vnd.github+json"}});
+  const r=await fetch(`https://api.github.com/repos/${SYNC_REPO}/contents/${SYNC_PATH}?ref=${SYNC_BRANCH}`, {headers:{Authorization:`Bearer ${syncCfg.token}`, Accept:"application/vnd.github+json"}});
   if(r.status===404) return null;
+  if(r.status===401||r.status===403) throw new Error("拉取失败("+r.status+")：令牌无权限，请在 GitHub 给该令牌对 workbench 仓库的「Contents 读写」权限");
   if(!r.ok) throw new Error("拉取失败("+r.status+")");
   const j=await r.json();
   return { sha:j.sha, blob: JSON.parse(atob(j.content.replace(/\s/g,""))) };
 }
 async function ghPut(b64content, sha, message){
-  const body={ message, content:b64content };
+  const body={ message, content:b64content, branch: SYNC_BRANCH };
   if(sha) body.sha=sha;
   const r=await fetch(`https://api.github.com/repos/${SYNC_REPO}/contents/${SYNC_PATH}`, {method:"PUT", headers:{Authorization:`Bearer ${syncCfg.token}`, Accept:"application/vnd.github+json", "Content-Type":"application/json"}, body:JSON.stringify(body)});
+  if(r.status===401||r.status===403) throw new Error("推送失败("+r.status+")：令牌无权限，请在 GitHub 给该令牌对 workbench 仓库的「Contents 读写」权限");
   if(!r.ok) throw new Error("推送失败("+r.status+")");
   const j=await r.json();
   return j.content.sha;
+}
+/* 首次推送前确保 sync 分支存在（从 main 派生），用户无需手动建分支 */
+async function ensureSyncBranch(){
+  const h={Authorization:`Bearer ${syncCfg.token}`, Accept:"application/vnd.github+json"};
+  const br=await fetch(`https://api.github.com/repos/${SYNC_REPO}/git/refs/heads/${SYNC_BRANCH}`, {headers:h});
+  if(br.ok) return;                       // 分支已存在
+  if(br.status!==404) throw new Error("检查同步分支失败("+br.status+")");
+  const mr=await fetch(`https://api.github.com/repos/${SYNC_REPO}/git/refs/heads/main`, {headers:h});
+  if(!mr.ok) throw new Error("获取 main 分支失败("+mr.status+")");
+  const sha=(await mr.json()).object.sha;
+  const cr=await fetch(`https://api.github.com/repos/${SYNC_REPO}/git/refs`, {method:"POST", headers:h, "Content-Type":"application/json", body:JSON.stringify({ref:"refs/heads/"+SYNC_BRANCH, sha})});
+  if(!cr.ok && cr.status!==422) throw new Error("创建同步分支失败("+cr.status+")");
+}
+/* 合并云端数据到本地：按日期/笔记ID取并集，避免任一端数据被覆盖丢失 */
+function mergeState(cloud){
+  const recs=STATE.records||{}, crecs=cloud.records||{};
+  const allDates=new Set([...Object.keys(recs), ...Object.keys(crecs)]);
+  const mergedRecs={};
+  for(const d of allDates){
+    const a=recs[d]||{}, b=crecs[d]||{};
+    const m={};
+    for(const k of new Set([...Object.keys(a), ...Object.keys(b)])){
+      const va=a[k], vb=b[k];
+      if(va==null||va==="") m[k]=vb;
+      else if(vb==null||vb==="") m[k]=va;
+      else m[k]=(String(va).length>=String(vb).length)?va:vb;
+    }
+    mergedRecs[d]=m;
+  }
+  const ln=STATE.readingNotes||[], cn=cloud.readingNotes||[];
+  const byId=new Map();
+  for(const n of ln) byId.set(n.id,n);
+  for(const n of cn){ const e=byId.get(n.id); if(!e) byId.set(n.id,n); else if((n.date||"")>=(e.date||"")) byId.set(n.id,n); }
+  const cloudNewer=(cloud.__ts||0)>(STATE.__ts||0);
+  STATE=Object.assign({}, STATE, {
+    records:mergedRecs,
+    readingNotes:[...byId.values()],
+    monthlyGoal: cloudNewer?cloud.monthlyGoal:STATE.monthlyGoal,
+    weekPlan: cloudNewer?cloud.weekPlan:STATE.weekPlan,
+    weeklyReview: cloudNewer?cloud.weeklyReview:STATE.weeklyReview,
+    recentSearches: cloudNewer?cloud.recentSearches:STATE.recentSearches,
+    __ts: Math.max(cloud.__ts||0, STATE.__ts||0)
+  });
 }
 async function pullData(){
   if(!syncCfg.token||!syncCfg.pass) throw new Error("请先填写口令与令牌");
   const got=await ghGet();
   if(!got) return false;
   const st=await decryptState(got.blob, syncCfg.pass);
-  if(typeof st.__ts==="number" && typeof STATE.__ts==="number" && st.__ts < STATE.__ts) return false;
-  STATE=st; normalizeState(); save(); lastSha=got.sha;
+  mergeState(st);                 // 合并而非整体覆盖，避免丢失任一端数据
+  normalizeState(); save(); lastSha=got.sha;
   return true;
 }
 async function pushData(){
   if(!syncCfg.token||!syncCfg.pass) throw new Error("请先填写口令与令牌");
+  await ensureSyncBranch();
   STATE.__ts=Date.now();
   const blob=await encryptState(syncCfg.pass);
   const b64content=btoa(JSON.stringify(blob));
-  try{ lastSha=await ghPut(b64content, lastSha, "sync "+new Date().toISOString()); }
+  // 先取云端当前版本 sha 作为更新基线：文件已存在则带 sha 更新（修复 422），不存在则新建
+  let baseSha=null;
+  try{ const got=await ghGet(); baseSha=got?got.sha:null; }
+  catch(e){ if(/401|403/.test(e.message)) throw e; /* 其他（网络/404）按新建处理 */ }
+  try{ lastSha=await ghPut(b64content, baseSha, "sync "+new Date().toISOString()); }
   catch(e){
     if(/推送失败\(409\)/.test(e.message)){
-      const got=await ghGet(); lastSha=got?got.sha:null;
-      lastSha=await ghPut(b64content, lastSha, "sync retry");
+      const got=await ghGet(); baseSha=got?got.sha:null;
+      lastSha=await ghPut(b64content, baseSha, "sync retry");
     } else throw e;
   }
   syncCfg.lastSync=Date.now(); saveSyncCfg();
@@ -1294,15 +1347,20 @@ function bindEvents(){
     pullData().then(ok=>{ if(ok){ rerenderActive(); toast("拉取成功，已合并云端数据"); } else toast("云端暂无更新"); renderSyncStatus(); }).catch(e=>toast(e.message));
   });
   document.getElementById("syncPush").addEventListener("click",()=>{
-    pushData().then(()=>{ toast("推送成功 ✓"); renderSyncStatus(); }).catch(e=>toast(e.message));
+    // 先合并云端（避免覆盖另一端数据），再上传合并后的完整数据
+    pullData().then(ok=>{ if(ok) rerenderActive(); return pushData(); })
+      .then(()=>{ toast("已合并并推送成功 ✓"); renderSyncStatus(); })
+      .catch(e=>{ toast(e.message); renderSyncStatus(); });
   });
 }
 
+const WB_VER="wb-v8";
 function init(){
   // 让全屏窗口从座右铭栏正下方开始
   const tb=document.getElementById("topbar");
   document.getElementById("overlay").style.top = tb.offsetHeight + "px";
   document.getElementById("searchOverlay").style.top = tb.offsetHeight + "px";
+  const verEl=document.getElementById("wbVer"); if(verEl) verEl.textContent="版本 "+WB_VER;
   load();
   bindEvents();
   loadSyncCfg();
